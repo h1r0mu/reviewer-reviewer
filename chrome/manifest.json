@@ -1,17 +1,21 @@
 {
-  "name": "BaclkgroundColor",
+  "name": "API_SAMPLE",
   "manifest_version": 2,
   "version": "1.0",
   "browser_action": {
-    "default_title": "BaclkgroundColor"
+    "default_title": "API_SAMPLE",
+    "default_popup": "popup.html"
   },
-
+  "background": {
+    "scripts": ["js/background.js"]
+  },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "css": ["content_scripts.css"],
-      "js": ["jquery.min.js", "content_scripts.js"]
+      "js": ["js/lib/jquery.min.js", "js/content_scripts.js"],
+      "matches": ["http://www.amazon.co.jp/*", "https://www.amazon.co.jp/*"]
     }
+  ],
+  "permissions": [
+    "tabs"
   ]
 }
-
