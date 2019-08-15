@@ -11,7 +11,7 @@
   },
   "content_scripts": [
     {
-      "js": ["js/lib/jquery.min.js", "js/content_scripts.js"],
+      "js": ["js/lib/axios.min.js", "js/lib/jquery.min.js", "js/content_scripts.js"],
       "matches": ["http://www.amazon.co.jp/*", "https://www.amazon.co.jp/*"]
     }
   ],
