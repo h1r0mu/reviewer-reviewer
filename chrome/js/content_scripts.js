@@ -1,11 +1,11 @@
-function genPosNegReviewUrls(productPageUrl) {
-    let domain = productPageUrl.split('/')[2];
-    let product = productPageUrl.match(/([A-Z]|[0-9]){10}/)[0];
+function genPosNegReviewUrls(productUrl) {
+    let domain = productUrl.split('/')[2];
+    let product = productUrl.match(/([A-Z]|[0-9]){10}/)[0];
 
     return {
-        'pos': `https://${domain}/product-reviews/${product}/` +
+        pos: `https://${domain}/product-reviews/${product}/` +
             `?ie=UTF8&filterByStar=positive&reviewerType=all_reviews&pageNumber=1`,
-        'neg': `https://${domain}/product-reviews/${product}/` +
+        neg: `https://${domain}/product-reviews/${product}/` +
             `?ie=UTF8&filterByStar=critical&reviewerType=all_reviews&pageNumber=1`
     }
 }
@@ -35,7 +35,12 @@ function findUserReviewUrls(userUrl) {
             let userReviews = iframe
                 .contentDocument
                 .getElementsByClassName('a-link-normal profile-at-review-link a-text-normal');
-            resolve(Object.values(userReviews).map(userReview => userReview.href));
+            resolve(
+                {
+                    userUrl: userUrl,
+                    reviewUrls: Object.values(userReviews).map(userReview => userReview.href)
+                }
+            );
             document.body.removeChild(iframe);
         };
         document.body.appendChild(iframe);
@@ -43,15 +48,37 @@ function findUserReviewUrls(userUrl) {
 }
 
 function findUsersReviewUrls(userUrls) {
-    let usersReviewUrls = {};
-    for (let url of userUrls) {
-        findUserReviewUrls(url)
-            .then(reviewUrls => {
-                usersReviewUrls[url] = {'urls': reviewUrls};
-                });
-        break;
-    }
-    return usersReviewUrls
+    return Promise.all(userUrls.map(findUserReviewUrls))
+}
+
+function getUserReviews(user) {
+    return Promise.all(
+        user.reviewUrls.map(url => {
+            return getDocument(url)
+                .then(reviewDocument => {
+                        let reviewBody = reviewDocument
+                            .getElementsByClassName('a-size-base review-text review-text-content');
+                        return reviewBody[0].textContent;
+                    }
+                )
+        }))
+}
+
+function getUsersReviews(usersReviewUrls) {
+    return Promise.all(
+        usersReviewUrls.map(user => {
+                return getUserReviews(user)
+                    .then(reviews => {
+                            return {
+                                userUrl: user.userUrl,
+                                reviewUrls: user.reviewUrls,
+                                reviews: reviews
+                            }
+                        }
+                    )
+            }
+        )
+    )
 }
 
 let reviewUrls = genPosNegReviewUrls(location.href)
@@ -59,5 +86,10 @@ for (let reviewUrl of Object.values(reviewUrls)) {
     getDocument(reviewUrl)
         .then(findUserUrls)
         .then(findUsersReviewUrls)
-        .then(usersReviewUrls => console.log(usersReviewUrls));
+        .then(getUsersReviews)
+        .then(values => console.log(values))
+        .catch(error => console.log(error))
+        .finally(value => console.log(value))
+
+    break;
 }
