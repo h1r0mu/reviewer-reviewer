@@ -1,0 +1,63 @@
+openapi: 3.0.0
+info:
+  description: ""
+  version: "0.0.1"
+  title: "Swagger Petstore"
+servers:
+  - url: /v1
+tags:
+- name: "Similarity"
+  description: "Post reviews and get the simirality between a reviewer and a user"
+paths:
+  /users/{userId}/reviewers/{reviewerId}/similarity:
+    post:
+      tags:
+      - "Similarity"
+      summary: "Get similarity from posted reviews"
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: reviewerId
+          required: true 
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Reviews"
+      responses:
+        201:
+          description: "Similarity between a user and a reviewer"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewsResponse"
+      security:
+        - ApiKeyAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:        
+      type: apiKey
+      in: header       
+      name: X-API-KEY
+  schemas:
+    Reviews:
+      type: "object"
+      required:
+      - "reviews"
+      properties:
+        reviews:
+          type: "array"
+          items:
+            type: "string"
+    ReviewsResponse:
+      type: "object"
+      properties:
+        similarity:
+          type: integer
