@@ -81,15 +81,23 @@ function getUsersReviews(usersReviewUrls) {
     )
 }
 
-let reviewUrls = genPosNegReviewUrls(location.href)
-for (let reviewUrl of Object.values(reviewUrls)) {
-    getDocument(reviewUrl)
-        .then(findUserUrls)
-        .then(findUsersReviewUrls)
-        .then(getUsersReviews)
-        .then(values => console.log(values))
-        .catch(error => console.log(error))
-        .finally(value => console.log(value))
 
-    break;
+function sortReviewsByPersonality() {
+    let reviewUrls = genPosNegReviewUrls(location.href)
+    for (let reviewUrl of Object.values(reviewUrls)) {
+        getDocument(reviewUrl)
+            .then(findUserUrls)
+            .then(findUsersReviewUrls)
+            .then(getUsersReviews)
+            .then(values => console.log(values))
+            .catch(error => console.log(error))
+        break;
+    }
 }
+
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+
+    if (message.color == "red") {
+        sortReviewsByPersonality();
+    }
+});
