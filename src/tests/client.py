@@ -4,7 +4,7 @@ import unittest
 import responses
 from ibm_watson.personality_insights_v3 import Profile
 
-from src.client import APIClient
+from app.client import APIClient
 
 
 class GetProfileTest(unittest.TestCase):
