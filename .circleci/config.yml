@@ -37,9 +37,10 @@ jobs:
           name: Lint
           working_directory: ~/reviewer-reviewer/src
           command: |
-            pipenv run flake8 bot --max-line-length=120
+            pipenv run flake8 app --max-line-length=120
       - run:
           name: Run tests
           command: |
             export PIPENV_PIPFILE=~/reviewer-reviewer/src/Pipfile
+            ~/reviewer-reviewer/bin/wait-for-it.sh localstack:4569 -t 30
             pipenv run python -m unittest discover -s tests -p "test_*.py" -t ./src

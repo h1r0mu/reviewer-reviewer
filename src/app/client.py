@@ -1,6 +1,5 @@
 import os
 from ibm_watson import PersonalityInsightsV3
-from ibm_watson.personality_insights_v3 import Profile
 
 USERNAME = os.environ.get('PERSONALITY_INSIGHTS_USERNAME', 'username')
 PASSWORD = os.environ.get('PERSONALITY_INSIGHTS_PASSWORD', 'password')
@@ -19,10 +18,8 @@ class APIClient(PersonalityInsightsV3):
         )
 
     def get_profile(self, data):
-        response = self.profile(
+        return self.profile(
             data,
             'application/json',
             content_type='text/plain;charset=utf-8'
         ).get_result()
-        profile = Profile._from_dict(response)
-        return profile

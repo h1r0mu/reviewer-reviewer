@@ -2,9 +2,8 @@ import json
 import os
 import unittest
 import responses
-from ibm_watson.personality_insights_v3 import Profile
 
-from app.client import APIClient
+from src.app.client import APIClient
 
 
 class GetProfileTest(unittest.TestCase):
@@ -26,6 +25,6 @@ class GetProfileTest(unittest.TestCase):
             data = personality_text.read()
 
         profile = self.client.get_profile(data=data)
-        profile_expected = Profile._from_dict(json.loads(profile_response))
+        profile_expected = json.loads(profile_response)
         self.assertEqual(profile_expected, profile)
 
