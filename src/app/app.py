@@ -6,27 +6,23 @@ from flask import (
 )
 from werkzeug.wrappers import Response
 
-from app.client import APIClient
+from app.models import User
+from app.utils import profile_utils
 
 app = Flask(__name__)
 
 
-class APIResponse(Response):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.headers['content-type'] = 'application/json'
-
-@app.route('/users/<string:user_id>/reviewers/<string:reviewer_id>', method=('POST',))
-def handle_request(user_id, reviewer_id):
-    client = APIClient()
+@app.route('/profile/similarity', method=('POST',))
+def profiles_similarity():
     data = request.get_json()
-    profile = client.get_profile(data['reviews'])
-    user = User(user_id)
-    user.profile
-    similarity = calc_similarity(profile)
-    response = Response(content_type='application/json')
-    return 'OK'
+    user = User.get_or_create(user_id=data['user_id'], text=data['user_text'])
+    reviewer = User.get_or_create(user_id=data['reviewer_id'], text=data['reviewer_text'])
+    similarity = profile_utils.calc_similarity(user.profile, reviewer.profile)
+    return Response(
+        status=200,
+        content_type='application/json',
+        response={'similarity': similarity},
+    )
 
 
 if __name__ == '__main__':
