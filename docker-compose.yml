@@ -1,0 +1,26 @@
+version: '3.3'
+services:
+  localstack:
+    image: localstack/localstack
+    ports:
+      - '4569:4569'
+      - '8080:8080'
+    environment:
+      - PORT_WEB_UI=8080
+      - SERVICES=dynamodb
+      - DEFAULT_REGION=ap-northeast-1
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/app/Dockerfile
+    command: sh -c './bin/wait-for-it.sh localstack:4569 -t 30; python ./app/app.py'
+    env_file:
+      - .env.app
+    volumes:
+      - type: bind
+        source: ./src
+        target: /src
+    ports:
+      - '8000:8000'
+    depends_on:
+      - localstack
