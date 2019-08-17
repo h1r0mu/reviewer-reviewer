@@ -1,0 +1,45 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/reviewer-reviewer
+    docker:
+      - image: circleci/python:3.7
+        environment:
+          AWS_REGION: ap-northeast-1
+          AWS_ACCESS_KEY_ID: AKIAIOSFODNN7EXAMPLE
+          AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+          DYNAMODB_HOST: http://localstack:4569
+          PIPENV_VENV_IN_PROJECT: true
+      - image: localstack/localstack
+        name: localstack
+        environment:
+          DEFAULT_REGION: ap-northeast-1
+          SERVICES: dynamodb
+        ports:
+          - 4569:4569
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v3-pip-dependencies-{{ checksum "~/reviewer-reviewer/src/Pipfile.lock" }}
+      - run:
+          name: Install dependencies
+          working_directory: ~/reviewer-reviewer/src
+          command: |
+            if [ ! -d ./.venv ]; then
+              pipenv install --dev
+            fi
+      - save_cache:
+          key: v3-pip-dependencies-{{ checksum "~/reviewer-reviewer/src/Pipfile.lock" }}
+          paths:
+            - ~/reviewer-reviewer/src/.venv
+      - run:
+          name: Lint
+          working_directory: ~/reviewer-reviewer/src
+          command: |
+            pipenv run flake8 bot --max-line-length=120
+      - run:
+          name: Run tests
+          command: |
+            export PIPENV_PIPFILE=~/reviewer-reviewer/src/Pipfile
+            pipenv run python -m unittest discover -s tests -p "test_*.py" -t ./src
