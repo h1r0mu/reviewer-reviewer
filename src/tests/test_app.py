@@ -1,11 +1,18 @@
 import os
 import responses
-import unittest
+from unittest import (
+    TestCase,
+    skipIf,
+)
 
 from src.app import app
 
+SKIP_USER_STATE_TESTS = os.environ.get('DYNAMODB_HOST', None) is None
+os.environ['DYNAMODB_HOST'] = ''
 
-class ProfilesSimilarityTest(unittest.TestCase):
+
+@skipIf(SKIP_USER_STATE_TESTS, 'Mock DynamoDB is not configured.')
+class ProfilesSimilarityTest(TestCase):
 
     def setUp(self) -> None:
         _app = app.create_app()
@@ -35,4 +42,3 @@ class ProfilesSimilarityTest(unittest.TestCase):
         expected_response = {'similarity': 1.0}
 
         self.assertEqual(expected_response, response.get_json())
-

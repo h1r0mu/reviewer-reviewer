@@ -37,7 +37,7 @@ jobs:
           name: Lint
           working_directory: ~/reviewer-reviewer/src
           command: |
-            pipenv run flake8 bot --max-line-length=120
+            pipenv run flake8 app --max-line-length=120
       - run:
           name: Run tests
           command: |
