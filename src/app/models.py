@@ -1,8 +1,5 @@
 from pynamodb.models import Model
-from pynamodb.attributes import (
-    MapAttribute,
-    UnicodeAttribute,
-)
+from pynamodb.attributes import UnicodeAttribute
 
 from src.app.client import APIClient
 from src.app.config import get_global_config_dict
@@ -21,7 +18,7 @@ class User(Model):
 
     id = UnicodeAttribute(hash_key=True)
     text = UnicodeAttribute()
-    profile = MapAttribute(default={})
+    profile = UnicodeAttribute()
 
     @classmethod
     def get_or_create(cls, user_id, text=None):
