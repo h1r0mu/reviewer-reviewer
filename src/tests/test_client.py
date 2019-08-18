@@ -3,7 +3,7 @@ import os
 import unittest
 import responses
 
-from src.app.client import APIClient
+from reviewer.client import APIClient
 
 
 class GetProfileTest(unittest.TestCase):

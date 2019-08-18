@@ -13,7 +13,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/app/Dockerfile
-    command: sh -c './bin/wait-for-it.sh localstack:4569 -t 30; python ./app/app.py'
+    command: sh -c './bin/wait-for-it.sh localstack:4569 -t 30; sleep 10; flask run --port=8000 --host="0.0.0.0"'
     env_file:
       - .env.app
     volumes:

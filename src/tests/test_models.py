@@ -5,7 +5,7 @@ from unittest import (
 )
 from unittest.mock import patch
 
-from src.app.models import (
+from reviewer.models import (
     APIClient,
     User,
 )
