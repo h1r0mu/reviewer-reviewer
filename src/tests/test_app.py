@@ -5,7 +5,7 @@ from unittest import (
     skipIf,
 )
 
-from src.app import app
+from reviewer import app
 
 SKIP_USER_STATE_TESTS = os.environ.get('DYNAMODB_HOST', None) is None
 os.environ['DYNAMODB_HOST'] = ''

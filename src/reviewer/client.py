@@ -1,19 +1,23 @@
-import os
 from ibm_watson import PersonalityInsightsV3
 
-USERNAME = os.environ.get('PERSONALITY_INSIGHTS_USERNAME', 'username')
-PASSWORD = os.environ.get('PERSONALITY_INSIGHTS_PASSWORD', 'password')
-API_URL = os.environ.get('PERSONALITY_INSIGHTS_URL',
-                         'https://gateway.watsonplatform.net/personality-insights/api')
-API_VERSION = os.environ.get('PERSONALITY_INSIGHTS_VERSION', '2017-10-13')
+from reviewer.config import get_global_config_dict
+
+global_config = get_global_config_dict()
+
+USERNAME = global_config['PERSONALITY_INSIGHTS_USERNAME']
+PASSWORD = global_config['PERSONALITY_INSIGHTS_PASSWORD']
+API_KEY = global_config['PERSONALITY_INSIGHTS_API_KEY']
+API_URL = global_config['PERSONALITY_INSIGHTS_URL']
+API_VERSION = global_config['PERSONALITY_INSIGHTS_VERSION']
 
 
 class APIClient(PersonalityInsightsV3):
     def __init__(self):
         super().__init__(
             version=API_VERSION,
-            username=USERNAME,
-            password=PASSWORD,
+            username=USERNAME if API_KEY is None else None,
+            password=PASSWORD if API_KEY is None else None,
+            iam_apikey=API_KEY,
             url=API_URL,
         )
 
@@ -21,5 +25,6 @@ class APIClient(PersonalityInsightsV3):
         return self.profile(
             data,
             'application/json',
-            content_type='text/plain;charset=utf-8'
+            content_type='text/plain;charset=utf-8',
+            content_language='ja'
         ).get_result()

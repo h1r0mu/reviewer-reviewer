@@ -2,8 +2,8 @@ import json
 from pynamodb.models import Model
 from pynamodb.attributes import UnicodeAttribute
 
-from app.client import APIClient
-from app.config import get_global_config_dict
+from reviewer.client import APIClient
+from reviewer.config import get_global_config_dict
 
 global_config = get_global_config_dict()
 
