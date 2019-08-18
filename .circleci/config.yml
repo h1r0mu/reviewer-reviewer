@@ -42,5 +42,5 @@ jobs:
           name: Run tests
           command: |
             export PIPENV_PIPFILE=~/reviewer-reviewer/src/Pipfile
-            ~/reviewer-reviewer/bin/wait-for-it.sh localstack:4569 -t 30
+            ~/reviewer-reviewer/src/bin/wait-for-it.sh localstack:4569 -t 30
             pipenv run python -m unittest discover -s tests -p "test_*.py" -t ./src
