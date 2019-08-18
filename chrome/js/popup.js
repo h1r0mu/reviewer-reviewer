@@ -1,8 +1,6 @@
 $("#btn").on("click", () => {
     console.log('btn');
-    chrome.runtime.sendMessage({greeting: "hello"}, function (response) {
-        console.log(response);
-    });
+    chrome.runtime.sendMessage({command: "getTweets"});
 });
 
 $("#black").on("click", () => {

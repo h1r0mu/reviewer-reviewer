@@ -22,8 +22,9 @@ function getDocument(reviewUrl) {
 }
 
 function findUserUrls(reviewDocument) {
+    // TODO: remove slice
     let users = reviewDocument.getElementsByClassName("a-profile");
-    return Object.values(users).map(user => user.href);
+    return Object.values(users).map(user => user.href).slice(0,2);
 }
 
 function findUserReviewUrls(userUrl) {
@@ -81,6 +82,23 @@ function getUsersReviews(usersReviewUrls) {
     )
 }
 
+function getSimilarity(usersReviews) {
+    console.log(usersReviews);
+    //TODO: use Promise.all
+    let request = {
+        user_id: "",
+        user_text: "",
+        reviewer_id: usersReviews[0].userUrl,
+        reviewer_text: usersReviews[0].reviews.join(" "),
+    }
+    console.log(request);
+    let msg = {
+        command: "getProfilesSimilarity",
+        request: request
+    };
+    chrome.runtime.sendMessage(msg);
+}
+
 
 function sortReviewsByPersonality() {
     let reviewUrls = genPosNegReviewUrls(location.href)
@@ -89,7 +107,7 @@ function sortReviewsByPersonality() {
             .then(findUserUrls)
             .then(findUsersReviewUrls)
             .then(getUsersReviews)
-            .then(values => console.log(values))
+            .then(getSimilarity)
             .catch(error => console.log(error))
         break;
     }
@@ -98,6 +116,7 @@ function sortReviewsByPersonality() {
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 
     if (message.color == "red") {
+        console.log(message);
         sortReviewsByPersonality();
     }
 });
