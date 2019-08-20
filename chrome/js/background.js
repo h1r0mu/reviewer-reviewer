@@ -26,17 +26,13 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
         case "getProfilesSimilarity":
             if (!("rr_user_id" in localStorage && "rr_user_text" in localStorage)) {
                 console.error("Get tweets first.");
+                break;
             }
-            console.log(msg.request)
             msg.request.user_id = localStorage.getItem("rr_user_id");
             msg.request.user_text = localStorage.getItem("rr_user_text");
-            console.log(msg.request)
             let url = "http://localhost:8000/api/v1/profiles/similarity"
-            axios.post(url, msg.request)
-                .then(response => {
-                    console.log(response);
-                });
-            break;
+            console.log(msg.request)
+            return axios.post(url, msg.request);
     }
 });
 

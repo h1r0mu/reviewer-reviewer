@@ -82,21 +82,26 @@ function getUsersReviews(usersReviewUrls) {
     )
 }
 
-function getSimilarity(usersReviews) {
-    console.log(usersReviews);
-    //TODO: use Promise.all
+async function getSimilarity(userReviews) {
     let request = {
         user_id: "",
         user_text: "",
-        reviewer_id: usersReviews[0].userUrl,
-        reviewer_text: usersReviews[0].reviews.join(" "),
+        reviewer_id: userReviews.userUrl,
+        reviewer_text: userReviews.reviews.join(" "),
     }
-    console.log(request);
     let msg = {
         command: "getProfilesSimilarity",
         request: request
     };
     chrome.runtime.sendMessage(msg);
+    console.log('send request');
+}
+
+async function getSimilarities(usersReviews) {
+    console.log(usersReviews);
+    return await Promise.all(
+       usersReviews.map(getSimilarity)
+    )
 }
 
 
@@ -107,7 +112,7 @@ function sortReviewsByPersonality() {
             .then(findUserUrls)
             .then(findUsersReviewUrls)
             .then(getUsersReviews)
-            .then(getSimilarity)
+            .then(getSimilarities)
             .catch(error => console.log(error))
         break;
     }
