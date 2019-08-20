@@ -7,12 +7,25 @@
     "default_popup": "popup.html"
   },
   "background": {
-    "scripts": ["js/lib/axios.min.js", "js/lib/oauth.min.js", "js/background.js"]
+    "scripts": [
+      "js/lib/browser-polyfill.min.js",
+      "js/lib/axios.min.js",
+      "js/lib/oauth.min.js",
+      "js/background.js"
+    ]
   },
   "content_scripts": [
     {
-      "js": ["js/lib/axios.min.js", "js/lib/jquery.min.js", "js/content_scripts.js"],
-      "matches": ["http://www.amazon.co.jp/*", "https://www.amazon.co.jp/*"]
+      "js": [
+        "js/lib/browser-polyfill.min.js",
+        "js/lib/axios.min.js",
+        "js/lib/jquery.min.js",
+        "js/content_scripts.js"
+      ],
+      "matches": [
+        "http://www.amazon.co.jp/*",
+        "https://www.amazon.co.jp/*"
+      ]
     }
   ],
   "permissions": [
@@ -21,6 +34,8 @@
     "http://localhost:8000/api/v1/profiles/similarity"
   ],
   "externally_connectable": {
-    "matches": ["https://oauth.io/*"]
+    "matches": [
+      "https://oauth.io/*"
+    ]
   }
 }

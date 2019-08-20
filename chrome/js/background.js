@@ -1,4 +1,5 @@
-async function getTweets(count = 200) {
+
+async function getTweets(count = 2) {
     OAuth.initialize('wgFu5bezL7NdCCK5giqQH_xDB4U');
     let result = await OAuth.popup("twitter");
     let credentials = await result.get('/1.1/account/verify_credentials.json');
@@ -9,25 +10,17 @@ async function getTweets(count = 200) {
 }
 
 
-chrome.runtime.onMessage.addListener(async function (msg, sender, sendResponse) {
+browser.runtime.onMessage.addListener(async function (msg) {
     console.log(msg);
     switch (msg.command) {
         case "getTweets":
-            let tweets = await getTweets();
-            sendResponse({tweets: tweets});
-            // chrome.tabs.sendMessage(sender.tab.id, {
-            //     type: "sendResponse",
-            //     command: "getTweest",
-            //     tweets: tweets
-            // });
-            break;
+            let [userId, tweets] = await getTweets(msg.count);
+            console.log("Got tweets");
+            return {userId: userId, tweets: tweets};
         case "axiosPost":
-            let response = await axios.post(url, request);
-            chrome.tabs.sendMessage(sender.tab.id, {
-                type: 'sendResponse',
-                response: response
-            });
-            break;
+            let response = await axios.post(msg.url, msg.request);
+            console.log("Sent request");
+            return response;
         default:
             console.log(`Unknown commmand ${msg.command} is specified.`);
             break;

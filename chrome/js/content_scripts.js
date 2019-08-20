@@ -1,9 +1,3 @@
-class Message {
-    constructor(command, func) {
-        this.command = command;
-        this.func = func;
-    }
-}
 
 class Client {
     constructor() {
@@ -12,7 +6,7 @@ class Client {
 
     async getProfilesSimilarity(user, reviewer) {
         let msg = {
-            command: 'axiosPost',
+            command: "axiosPost",
             url: this.url,
             request: {
                 user_id: user.id,
@@ -21,15 +15,8 @@ class Client {
                 reviewer_text: reviewer.reviews
             }
         };
-        return new Promise((resolve, reject) => {
-            console.log('send request');
-            chrome.runtime.sendMessage(msg);
-            chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-                if (message.type === "sendResponse" && message.command === "axiosPost") {
-                    resolve(message.response);
-                }
-            });
-        });
+        console.log('Send msg', msg);
+        return await browser.runtime.sendMessage(msg);
     }
 }
 
@@ -59,9 +46,10 @@ class Reviewer {
     get reviews() {
         return this.rawReviews.join(' ');
     }
+
 }
 
-class ChromeStorageWrapper {
+class StorageWrapper {
 
     getUserId() {
         return this.getProfileText('user_id');
@@ -71,16 +59,13 @@ class ChromeStorageWrapper {
         return this.setProfileText('user_id', userId);
     }
 
-    getProfileText(id) {
-        let value = "";
-        chrome.storage.local.get([`rr_profiles_${id}`], result => {
-            value = result[`rr_profiles_${id}`];
-        })
-        return value;
+    async getProfileText(id) {
+        let value = await browser.storage.local.get(`rr_profiles_${id}`);
+        return value[`rr_profiles_${id}`];
     }
 
-    setProfileText(id, text) {
-        chrome.storage.local.set({[`rr_profiles_${id}`]: text});
+    async setProfileText(id, text) {
+        browser.storage.local.set({[`rr_profiles_${id}`]: text});
     }
 }
 
@@ -108,19 +93,11 @@ async function getDocument(reviewUrl) {
 
 async function getTweets(count = 200) {
     let msg = {
-        command: 'getTweets'
+        command: 'getTweets',
+        count: count
     };
-    return new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage(msg, response => {
-            console.log(response);
-            resolve(response.tweets);
-        });
-        // chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        //     if (message.type === "sendResponse" && message.command === "getTweets") {
-        //         resolve(message.tweets);
-        //     }
-        // });
-    });
+    let response = await browser.runtime.sendMessage(msg);
+    return [response.userId, response.tweets];
 }
 
 function findReviewerProfileUrls(reviewDocument) {
@@ -153,31 +130,36 @@ async function getReviewerReviews(url) {
 
 async function sortReviewsByPersonality() {
     let client = new Client();
-    let storage = new ChromeStorageWrapper();
-    let user_id = storage.getUserId();
-    let tweets = storage.getProfileText(user_id);
-    if ((user_id == false || tweets == false)) {
-        user_id, tweets = await getTweets();
-        storage.setUserId(user_id);
-        storage.setProfileText(user_id, tweets);
+    let storage = new StorageWrapper();
+    let userId = await storage.getUserId();
+    let tweets = await storage.getProfileText(userId);
+    if ((userId === undefined || tweets === undefined)) {
+        [userId, tweets] = await getTweets();
+        storage.setUserId(userId);
+        storage.setProfileText(userId, tweets);
     }
-    let user = new User(user_id, tweets);
-    let reviewUrls = genPosNegReviewUrls(location.href);
-    for (let reviewUrl of Object.values(reviewUrls)) {
+    let user = new User(userId, tweets);
+    let topReviewUrls = genPosNegReviewUrls(location.href);
+    for (let topReviewUrl of Object.values(topReviewUrls)) {
 
-        let reviewPageDocument = await getDocument(reviewUrl);
+        let reviewPageDocument = await getDocument(topReviewUrl);
         let reviewerProfileUrls = await findReviewerProfileUrls(reviewPageDocument);
         let reviewers = reviewerProfileUrls.map(url => {
             return new Reviewer(url);
         });
         reviewers.map(async reviewer => {
-            let texts = storage.getProfileText(reviewer.id);
-            if (texts == "") {
+            let reviews = await storage.getProfileText(reviewer.id);
+            if (reviews === undefined) {
                 let reviewUrls = await findReviewerReviewUrls(reviewer.profileUrl);
-                reviewer.reviews = await Promise.all(reviewUrls.map(getReviewerReviews));
-                storage.setProfileText(reviewer.id, reviewer.reviews);
+                reviews = await Promise.all(reviewUrls.map(getReviewerReviews));
+                storage.setProfileText(reviewer.id, reviews);
             }
-            client.getProfilesSimilarity(user, reviewer);
+            reviewer = new Reviewer(reviewer.profileUrl, reviews);
+            if (reviews.length >= 20) {
+                similarity = await client.getProfilesSimilarity(user, reviewer);
+                reviewer = new Reviewer(reviewer.profileUrl, reviews, similarity);
+            }
+            return reviewer;
         });
     }
 }
