@@ -1,3 +1,74 @@
+
+class Client {
+    constructor() {
+        this.url = "http://localhost:8000/api/v1/profiles/similarity"
+    }
+
+    async getProfilesSimilarity(user, reviewer) {
+        let msg = {
+            command: "axiosPost",
+            url: this.url,
+            request: {
+                user_id: user.id,
+                user_text: user.tweets,
+                reviewer_id: reviewer.id,
+                reviewer_text: reviewer.reviews
+            }
+        };
+        console.log('Send msg', msg);
+        return await browser.runtime.sendMessage(msg);
+    }
+}
+
+
+class User {
+    constructor(id, tweets = []) {
+        this.id = id;
+        this.rawTweets = tweets;
+    }
+
+    get tweets() {
+        return this.rawTweets.join(' ');
+    }
+}
+
+class Reviewer {
+    constructor(profileUrl, reviews = [], similarity = null) {
+        this.profileUrl = profileUrl;
+        this.rawReviews = reviews;
+        this.similarity = similarity;
+    }
+
+    get id() {
+        return this.profileUrl.split('/')[5].split('.')[2];
+    }
+
+    get reviews() {
+        return this.rawReviews.join(' ');
+    }
+
+}
+
+class StorageWrapper {
+
+    getUserId() {
+        return this.getProfileText('user_id');
+    }
+
+    setUserId(userId) {
+        return this.setProfileText('user_id', userId);
+    }
+
+    async getProfileText(id) {
+        let value = await browser.storage.local.get(`rr_profiles_${id}`);
+        return value[`rr_profiles_${id}`];
+    }
+
+    async setProfileText(id, text) {
+        browser.storage.local.set({[`rr_profiles_${id}`]: text});
+    }
+}
+
 function genPosNegReviewUrls(productUrl) {
     let domain = productUrl.split('/')[2];
     let product = productUrl.match(/([A-Z]|[0-9]){10}/)[0];
@@ -10,111 +81,86 @@ function genPosNegReviewUrls(productUrl) {
     }
 }
 
-function getDocument(reviewUrl) {
-    return axios.get(reviewUrl)
-        .then(response => {
-            let parser = new DOMParser();
-            return parser.parseFromString(response.data, "text/html");
-        })
-        .catch(error => {
-            console.log(error);
-        })
+async function getDocument(reviewUrl) {
+    let parser = new DOMParser();
+    try {
+        let response = await axios.get(reviewUrl);
+        return parser.parseFromString(response.data, "text/html");
+    } catch (err) {
+        console.log(err);
+    }
 }
 
-function findUserUrls(reviewDocument) {
+async function getTweets(count = 200) {
+    let msg = {
+        command: 'getTweets',
+        count: count
+    };
+    let response = await browser.runtime.sendMessage(msg);
+    return [response.userId, response.tweets];
+}
+
+function findReviewerProfileUrls(reviewDocument) {
     // TODO: remove slice
     let users = reviewDocument.getElementsByClassName("a-profile");
-    return Object.values(users).map(user => user.href).slice(0,2);
+    return Object.values(users).map(user => user.href).slice(0, 2);
 }
 
-function findUserReviewUrls(userUrl) {
+function findReviewerReviewUrls(url) {
     return new Promise((resolve, reject) => {
         let iframe = document.createElement("iframe");
-        iframe.src = userUrl;
+        iframe.src = url;
         iframe.hidden = true;
         iframe.onload = () => {
             let userReviews = iframe
                 .contentDocument
                 .getElementsByClassName('a-link-normal profile-at-review-link a-text-normal');
-            resolve(
-                {
-                    userUrl: userUrl,
-                    reviewUrls: Object.values(userReviews).map(userReview => userReview.href)
-                }
-            );
             document.body.removeChild(iframe);
+            resolve(Object.values(userReviews).map(userReview => userReview.href));
         };
         document.body.appendChild(iframe);
     })
 }
 
-function findUsersReviewUrls(userUrls) {
-    return Promise.all(userUrls.map(findUserReviewUrls))
+async function getReviewerReviews(url) {
+    let reviewDocument = await getDocument(url);
+    let reviewBody = reviewDocument.getElementsByClassName('a-size-base review-text review-text-content');
+    return reviewBody[0].textContent;
 }
 
-function getUserReviews(user) {
-    return Promise.all(
-        user.reviewUrls.map(url => {
-            return getDocument(url)
-                .then(reviewDocument => {
-                        let reviewBody = reviewDocument
-                            .getElementsByClassName('a-size-base review-text review-text-content');
-                        return reviewBody[0].textContent;
-                    }
-                )
-        }))
-}
-
-function getUsersReviews(usersReviewUrls) {
-    return Promise.all(
-        usersReviewUrls.map(user => {
-                return getUserReviews(user)
-                    .then(reviews => {
-                            return {
-                                userUrl: user.userUrl,
-                                reviewUrls: user.reviewUrls,
-                                reviews: reviews
-                            }
-                        }
-                    )
-            }
-        )
-    )
-}
-
-async function getSimilarity(userReviews) {
-    let request = {
-        user_id: "",
-        user_text: "",
-        reviewer_id: userReviews.userUrl,
-        reviewer_text: userReviews.reviews.join(" "),
+async function sortReviewsByPersonality() {
+    let client = new Client();
+    let storage = new StorageWrapper();
+    let userId = await storage.getUserId();
+    let tweets = await storage.getProfileText(userId);
+    if ((userId === undefined || tweets === undefined)) {
+        [userId, tweets] = await getTweets();
+        storage.setUserId(userId);
+        storage.setProfileText(userId, tweets);
     }
-    let msg = {
-        command: "getProfilesSimilarity",
-        request: request
-    };
-    chrome.runtime.sendMessage(msg);
-    console.log('send request');
-}
+    let user = new User(userId, tweets);
+    let topReviewUrls = genPosNegReviewUrls(location.href);
+    for (let topReviewUrl of Object.values(topReviewUrls)) {
 
-async function getSimilarities(usersReviews) {
-    console.log(usersReviews);
-    return await Promise.all(
-       usersReviews.map(getSimilarity)
-    )
-}
-
-
-function sortReviewsByPersonality() {
-    let reviewUrls = genPosNegReviewUrls(location.href)
-    for (let reviewUrl of Object.values(reviewUrls)) {
-        getDocument(reviewUrl)
-            .then(findUserUrls)
-            .then(findUsersReviewUrls)
-            .then(getUsersReviews)
-            .then(getSimilarities)
-            .catch(error => console.log(error))
-        break;
+        let reviewPageDocument = await getDocument(topReviewUrl);
+        let reviewerProfileUrls = await findReviewerProfileUrls(reviewPageDocument);
+        let reviewers = reviewerProfileUrls.map(url => {
+            return new Reviewer(url);
+        });
+        reviewers.map(async reviewer => {
+            let reviews = await storage.getProfileText(reviewer.id);
+            if (reviews === undefined) {
+                let reviewUrls = await findReviewerReviewUrls(reviewer.profileUrl);
+                reviews = await Promise.all(reviewUrls.map(getReviewerReviews));
+                storage.setProfileText(reviewer.id, reviews);
+            }
+            reviewer = new Reviewer(reviewer.profileUrl, reviews);
+            if (reviews.length >= 20) {
+                similarity = await client.getProfilesSimilarity(user, reviewer);
+                reviewer = new Reviewer(reviewer.profileUrl, reviews, similarity);
+            }
+            return reviewer;
+        });
     }
 }
 

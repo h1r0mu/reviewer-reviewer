@@ -1,38 +1,29 @@
-async function getTweets(count) {
+
+async function getTweets(count = 2) {
     OAuth.initialize('wgFu5bezL7NdCCK5giqQH_xDB4U');
     let result = await OAuth.popup("twitter");
     let credentials = await result.get('/1.1/account/verify_credentials.json');
     let timeline = await result.get(`/1.1/statuses/user_timeline.json?screen_name=${credentials.screen_name}&count=${count}`)
-    return {
-        credentials: credentials,
-        timeline: timeline
-    };
+    let user_id = credentials.screen_name;
+    let tweets = timeline.map(tweet => tweet.text);
+    return [user_id, tweets];
 }
 
-chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+
+browser.runtime.onMessage.addListener(async function (msg) {
     console.log(msg);
     switch (msg.command) {
         case "getTweets":
-            console.log("Get tweets");//送られたメッセージをキャッチ
-            getTweets(200)
-                .then(tweets => {
-                    console.log(tweets)
-                    let user_id = tweets.credentials.screen_name;
-                    let user_text = tweets.timeline.map(tweet => tweet.text).join(" ");
-                    localStorage.setItem("rr_user_id", user_id);
-                    localStorage.setItem("rr_user_text", user_text);
-                });
+            let [userId, tweets] = await getTweets(msg.count);
+            console.log("Got tweets");
+            return {userId: userId, tweets: tweets};
+        case "axiosPost":
+            let response = await axios.post(msg.url, msg.request);
+            console.log("Sent request");
+            return response;
+        default:
+            console.log(`Unknown commmand ${msg.command} is specified.`);
             break;
-        case "getProfilesSimilarity":
-            if (!("rr_user_id" in localStorage && "rr_user_text" in localStorage)) {
-                console.error("Get tweets first.");
-                break;
-            }
-            msg.request.user_id = localStorage.getItem("rr_user_id");
-            msg.request.user_text = localStorage.getItem("rr_user_text");
-            let url = "http://localhost:8000/api/v1/profiles/similarity"
-            console.log(msg.request)
-            return axios.post(url, msg.request);
     }
 });
 
