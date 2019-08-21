@@ -1,3 +1,4 @@
+import json
 import os
 import responses
 from unittest import (
@@ -28,13 +29,7 @@ class ProfilesSimilarityTest(TestCase):
     def test_profiles_similarity(self):
         with open(os.path.join(os.path.dirname(__file__), '../resources/personality-v3-expect1.txt')) as expect_file:
             profile_response = expect_file.read()
-        responses.add(responses.POST, self.profile_url,
-                      body=profile_response, status=200,
-                      content_type='application/json')
-
-        with open(os.path.join(os.path.dirname(__file__), '../resources/personality-v3-expect1.txt')) as expect_file:
-            profile_response = expect_file.read()
-        with patch.object(APIClient, 'get_profile', return_value=profile_response) as mock_get_profile:
+        with patch.object(APIClient, 'get_profile', return_value=json.loads(profile_response)) as mock_get_profile:
             response = self.client.post(
                 self.url,
                 json={
