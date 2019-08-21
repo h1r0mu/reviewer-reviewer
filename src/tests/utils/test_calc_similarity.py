@@ -2,7 +2,7 @@ import json
 import os
 import unittest
 import responses
-import reviewer
+import reviewer.utils.profile_utils
 
 from reviewer.client import APIClient
 
