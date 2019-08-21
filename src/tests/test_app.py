@@ -46,6 +46,6 @@ class ProfilesSimilarityTest(TestCase):
                 headers={'Accept': 'application/json'},
             )
 
-        expected_response = {'similarity': 1.0}
+        expected_response = {'similarity': 0.3333333333333332}
 
         self.assertEqual(expected_response, response.get_json())
