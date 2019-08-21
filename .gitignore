@@ -20,7 +20,7 @@ instance/
 .python-version
 
 # Environments
-.env
+.env.app
 .venv
 env/
 venv/

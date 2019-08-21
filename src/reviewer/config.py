@@ -11,7 +11,7 @@ def get_global_config_dict():
         PERSONALITY_INSIGHTS_PASSWORD=os.environ.get('PERSONALITY_INSIGHTS_PASSWORD', 'password'),
         PERSONALITY_INSIGHTS_API_KEY=os.environ.get('PERSONALITY_INSIGHTS_API_KEY', None),
         PERSONALITY_INSIGHTS_URL=os.environ.get('PERSONALITY_INSIGHTS_URL',
-                                                'https://gateway.watsonplatform.net/personality-insights/api'),
+                                                'https://gateway-tok.watsonplatform.net/personality-insights/api'),
         PERSONALITY_INSIGHTS_VERSION=os.environ.get('PERSONALITY_INSIGHTS_VERSION', '2017-10-13'),
 
     )
