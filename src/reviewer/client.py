@@ -15,8 +15,8 @@ class APIClient(PersonalityInsightsV3):
     def __init__(self):
         super().__init__(
             version=API_VERSION,
-            username=USERNAME if API_KEY is None else None,
-            password=PASSWORD if API_KEY is None else None,
+            username=USERNAME if not API_KEY else None,
+            password=PASSWORD if not API_KEY else None,
             iam_apikey=API_KEY,
             url=API_URL,
         )

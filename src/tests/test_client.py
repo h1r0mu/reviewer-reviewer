@@ -5,12 +5,17 @@ import responses
 
 from reviewer.client import APIClient
 
+PROFILE_URL = 'https://gateway-tok.watsonplatform.net/personality-insights/api/v3/profile'
+API_VERSION = os.environ.get('PERSONALITY_INSIGHTS_VERSION', '2017-10-13')
+
 
 class GetProfileTest(unittest.TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.profile_url = 'https://gateway.watsonplatform.net/personality-insights/api/v3/profile'
+        url = PROFILE_URL
+        query = f'?version={API_VERSION}'
+        self.profile_url = url + query
 
     @responses.activate
     def test_get_profile(self):
@@ -27,4 +32,3 @@ class GetProfileTest(unittest.TestCase):
         profile = self.client.get_profile(data=data)
         profile_expected = json.loads(profile_response)
         self.assertEqual(profile_expected, profile)
-
