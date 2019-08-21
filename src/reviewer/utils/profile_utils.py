@@ -47,10 +47,10 @@ def calc_similarity(user_profile, reviewer_profile):
     elif reviewer_data['word_count'] <= 1500:
         reliability = 'Low'
     else:
-        reliability = 'Meduim'
-    user_dict = create_new_dict(user_data['personality'], \
+        reliability = 'Medium'
+    user_dict = create_new_dict(user_data['personality'],
                                 user_data['needs'], user_data['values'])
-    reviewer_dict = create_new_dict(reviewer_data['personality'], \
+    reviewer_dict = create_new_dict(reviewer_data['personality'],
                                     reviewer_data['needs'], reviewer_data['values'])
     total_similarity = calc_element_similarity(user_dict, reviewer_dict, reliability)
     print(f'Similarity: {(total_similarity * 100):.2f}%')

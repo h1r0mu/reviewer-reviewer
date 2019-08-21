@@ -16,7 +16,6 @@ class GetProfileTest(unittest.TestCase):
         url = PROFILE_URL
         query = f'?version={API_VERSION}'
         self.profile_url = url + query
-        print(self.profile_url)
 
     @responses.activate
     def test_get_profile(self):

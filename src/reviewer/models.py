@@ -33,7 +33,7 @@ class User(Model):
             user = cls(
                 id=user_id,
                 text=text,
-                profile=profile,
+                profile=json.dumps(profile),
             )
             user.save()
             return user
