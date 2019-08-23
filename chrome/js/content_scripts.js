@@ -146,11 +146,13 @@ function replaceReviews(reviewers) {
         parentElement.removeChild(parentElement.lastChild);
     }
     for (let reviewer of reviewers) {
-        parentElement.appendChild(reviewer.currentReviewElement);
         let profileContent = reviewer.currentReviewElement.getElementsByClassName("a-profile-content")[0];
         console.log(reviewer);
         let newText = document.createTextNode(`  Similarity: ${reviewer.similarity}`);
         profileContent.appendChild(newText);
+        let svgElement = generateProfileChart(reviewer.profile);
+        reviewer.currentReviewElement.appendChild(svgElement);
+        parentElement.appendChild(reviewer.currentReviewElement);
     }
 }
 
@@ -213,35 +215,30 @@ async function sortReviewsByPersonality() {
     replaceReviews(reviewers);
 }
 
-function autoBox() {
-    const {x, y, width, height} = this.getBBox();
-    return [x, y, width, height];
-}
-
-function* showD3() {
-    let data = d3.json("https://raw.githubusercontent.com/d3/d3-hierarchy/v1.1.8/test/data/flare.json")
+async function generateProfileChart(data) {
     let partition = data => d3.partition()
         .size([2 * Math.PI, radius])
         (d3.hierarchy(data)
             .sum(d => d.value)
-            .sort((a, b) => b.value - a.value))
-    let color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1))
-    let format = d3.format(",d")
-    let width = 975
-    let radius = width / 2
+            .sort((a, b) => b.value - a.value));
+    let color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
+    let format = d3.format(",d");
+    let width = 975;
+    let radius = width / 2;
     let arc = d3.arc()
         .startAngle(d => d.x0)
         .endAngle(d => d.x1)
         .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
         .padRadius(radius / 2)
         .innerRadius(d => d.y0)
-        .outerRadius(d => d.y1 - 1)
+        .outerRadius(d => d.y1 - 1);
     const root = partition(data);
 
     const svg = d3.create("svg")
+        .attr("viewBox", [0, 0, width, width])
         .style("max-width", "100%")
         .style("height", "auto")
-        .style("font", "10px sans-serif")
+        .style("font", "18px sans-serif")
         .style("margin", "5px");
 
     svg.append("g")
@@ -269,15 +266,20 @@ function* showD3() {
             return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
         })
         .attr("dy", "0.35em")
-        .text(d => d.data.name);
+        .text(d => {
+            if (d.data.value === undefined) {
+                return d.data.name;
+            } else {
+                return `${d.data.name} ${d.data.value}`;
+            }
+        });
 
-    yield svg.node();
+    return svg.node();
 
-    svg.attr("viewBox", autoBox);
 }
 
 
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(async function (message, sender, sendResponse) {
 
     console.log(message);
     switch (message.command) {
