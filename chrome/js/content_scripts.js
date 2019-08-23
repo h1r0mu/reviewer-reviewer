@@ -59,6 +59,11 @@ class StorageWrapper {
         return this.setProfileText('user_id', userId);
     }
 
+    async removeUserId() {
+        let userId = await this.getUserId();
+        browser.storage.local.remove(`rr_profiles_${userId}`);
+    }
+
     async getProfileText(id) {
         let value = await browser.storage.local.get(`rr_profiles_${id}`);
         return value[`rr_profiles_${id}`];
@@ -108,7 +113,6 @@ function findReviewerProfileUrl(reviewElement) {
 function findReviewElements(reviewPageDocument) {
     // TODO: remove slice
     let elements = reviewPageDocument.getElementsByClassName("a-section review aok-relative");
-
     return Object.values(elements);
 }
 
@@ -136,12 +140,17 @@ async function getReviewerReviews(url) {
 }
 
 function replaceReviews(reviewers) {
+    reviewers = reviewers.filter(a => a.similarity != null).sort((a, b) => b.similarity - a.similarity);
     let parentElement = document.getElementsByClassName("a-section review-views celwidget")[0];
     while (parentElement.lastChild) {
         parentElement.removeChild(parentElement.lastChild);
     }
-    for (let review of reviewers) {
-        parentElement.appendChild(review.currentReviewElement);
+    for (let reviewer of reviewers) {
+        parentElement.appendChild(reviewer.currentReviewElement);
+        let profileContent = reviewer.currentReviewElement.getElementsByClassName("a-profile-content")[0];
+        console.log(reviewer);
+        let newText = document.createTextNode(`  Similarity: ${reviewer.similarity}`);
+        profileContent.appendChild(newText);
     }
 }
 
@@ -160,6 +169,7 @@ function getReviewPageDocument(url) {
 }
 
 async function sortReviewsByPersonality() {
+    // let dummySimilarity = 0; //TODO: remove here
     let client = new Client();
     let storage = new StorageWrapper();
     let userId = await storage.getUserId();
@@ -181,31 +191,104 @@ async function sortReviewsByPersonality() {
             return new Reviewer(profileUrl, elem);
         });
         console.log(newReviewers);
-        newReviewers.map(async reviewer => {
+        newReviewers = await Promise.all(newReviewers.map(async reviewer => {
             let reviews = await storage.getProfileText(reviewer.id);
-            if (reviews === undefined) {
+            if (reviews === undefined || reviews.length === 0) {
                 let reviewUrls = await findReviewerReviewUrls(reviewer.profileUrl);
                 reviews = await Promise.all(reviewUrls.map(getReviewerReviews));
                 storage.setProfileText(reviewer.id, reviews);
             }
             reviewer = new Reviewer(reviewer.profileUrl, reviewer.currentReviewElement, reviews);
-            // if (reviews.length >= 20) {
-            //     similarity = await client.getProfilesSimilarity(user, reviewer);
-            //     reviewer = new Reviewer(reviewer.profileUrl, reviewer.currentReviewElement, reviews, similarity);
-            // }
+            if (reviews.length >= 20) {
+                let response = await client.getProfilesSimilarity(user, reviewer);
+                let similarity = response.data.similarity;
+                // let similarity = ++dummySimilarity / 10 % 1; // TODO: remove here
+                reviewer = new Reviewer(reviewer.profileUrl, reviewer.currentReviewElement, reviews, similarity);
+            }
             return reviewer;
-        });
+        }));
         Array.prototype.push.apply(reviewers, newReviewers);
     }
     console.log(reviewers)
     replaceReviews(reviewers);
 }
 
+function autoBox() {
+    const {x, y, width, height} = this.getBBox();
+    return [x, y, width, height];
+}
+
+function* showD3() {
+    let data = d3.json("https://raw.githubusercontent.com/d3/d3-hierarchy/v1.1.8/test/data/flare.json")
+    let partition = data => d3.partition()
+        .size([2 * Math.PI, radius])
+        (d3.hierarchy(data)
+            .sum(d => d.value)
+            .sort((a, b) => b.value - a.value))
+    let color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1))
+    let format = d3.format(",d")
+    let width = 975
+    let radius = width / 2
+    let arc = d3.arc()
+        .startAngle(d => d.x0)
+        .endAngle(d => d.x1)
+        .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
+        .padRadius(radius / 2)
+        .innerRadius(d => d.y0)
+        .outerRadius(d => d.y1 - 1)
+    const root = partition(data);
+
+    const svg = d3.create("svg")
+        .style("max-width", "100%")
+        .style("height", "auto")
+        .style("font", "10px sans-serif")
+        .style("margin", "5px");
+
+    svg.append("g")
+        .attr("fill-opacity", 0.6)
+        .selectAll("path")
+        .data(root.descendants().filter(d => d.depth))
+        .enter().append("path")
+        .attr("fill", d => {
+            while (d.depth > 1) d = d.parent;
+            return color(d.data.name);
+        })
+        .attr("d", arc)
+        .append("title")
+        .text(d => `${d.ancestors().map(d => d.data.name).reverse().join("/")}\n${format(d.value)}`);
+
+    svg.append("g")
+        .attr("pointer-events", "none")
+        .attr("text-anchor", "middle")
+        .selectAll("text")
+        .data(root.descendants().filter(d => d.depth && (d.y0 + d.y1) / 2 * (d.x1 - d.x0) > 10))
+        .enter().append("text")
+        .attr("transform", function (d) {
+            const x = (d.x0 + d.x1) / 2 * 180 / Math.PI;
+            const y = (d.y0 + d.y1) / 2;
+            return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+        })
+        .attr("dy", "0.35em")
+        .text(d => d.data.name);
+
+    yield svg.node();
+
+    svg.attr("viewBox", autoBox);
+}
+
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 
-    if (message.color == "red") {
-        console.log(message);
-        sortReviewsByPersonality();
+    console.log(message);
+    switch (message.command) {
+        case "sortReviewsByPersonality":
+            sortReviewsByPersonality();
+            break;
+        case "logoutTwitter":
+            let storageWrapper = new StorageWrapper();
+            storageWrapper.removeUserId();
+            break;
+        default:
+            console.log("Unknown command specified.");
     }
 });

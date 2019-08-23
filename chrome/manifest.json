@@ -17,6 +17,7 @@
   "content_scripts": [
     {
       "js": [
+        "js/lib/d3.v5.min.js",
         "js/lib/browser-polyfill.min.js",
         "js/lib/axios.min.js",
         "js/lib/jquery.min.js",
