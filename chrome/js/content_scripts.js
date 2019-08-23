@@ -140,7 +140,7 @@ async function getReviewerReviews(url) {
     return reviewBody[0].textContent;
 }
 
-function replaceReviews(reviewers) {
+async function replaceReviews(reviewers) {
     reviewers = reviewers.filter(a => a.similarity != null).sort((a, b) => b.similarity - a.similarity);
     let parentElement = document.getElementsByClassName("a-section review-views celwidget")[0];
     while (parentElement.lastChild) {
@@ -151,7 +151,11 @@ function replaceReviews(reviewers) {
         console.log(reviewer);
         let newText = document.createTextNode(`  Similarity: ${reviewer.similarity}`);
         profileContent.appendChild(newText);
-        let svgElement = generateProfileChart(reviewer.profile);
+        console.log(profileContent.offsetWidth)
+        let svgElement = await generateProfileChart(
+            reviewer.profile,
+            Math.round(document.body.offsetWidth * 0.5)
+    );
         reviewer.currentReviewElement.appendChild(svgElement);
         parentElement.appendChild(reviewer.currentReviewElement);
     }
@@ -206,7 +210,7 @@ async function sortReviewsByPersonality() {
                 let response = await client.getProfilesSimilarity(user, reviewer);
                 console.log(response);
                 let similarity = response.data.similarity;
-                let profile = response.data.profile;
+                let profile = JSON.parse(response.data.profile);
                 // let similarity = ++dummySimilarity / 10 % 1; // TODO: remove here
                 reviewer = new Reviewer(
                     reviewer.profileUrl,
@@ -221,10 +225,11 @@ async function sortReviewsByPersonality() {
         Array.prototype.push.apply(reviewers, newReviewers);
     }
     console.log(reviewers)
-    replaceReviews(reviewers);
+    await replaceReviews(reviewers);
 }
 
-async function generateProfileChart(data) {
+async function generateProfileChart(data, width) {
+    console.log(width);
     let partition = data => d3.partition()
         .size([2 * Math.PI, radius])
         (d3.hierarchy(data)
@@ -232,22 +237,21 @@ async function generateProfileChart(data) {
             .sort((a, b) => b.value - a.value));
     let color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
     let format = d3.format(",d");
-    let width = 975;
-    let radius = width / 2;
+    let radius = width / 2.3;
     let arc = d3.arc()
         .startAngle(d => d.x0)
         .endAngle(d => d.x1)
         .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
         .padRadius(radius / 2)
-        .innerRadius(d => d.y0)
+        .innerRadius(d => d.y0 )
         .outerRadius(d => d.y1 - 1);
     const root = partition(data);
 
     const svg = d3.create("svg")
-        .attr("viewBox", [0, 0, width, width])
+        .attr("viewBox", [-width/2, -width/2, width, width])
         .style("max-width", "100%")
         .style("height", "auto")
-        .style("font", "18px sans-serif")
+        .style("font", "20px sans-serif")
         .style("margin", "5px");
 
     svg.append("g")
@@ -274,12 +278,24 @@ async function generateProfileChart(data) {
             const y = (d.y0 + d.y1) / 2;
             return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
         })
-        .attr("dy", "0.35em")
+        .attr("dy", "0.00em")
+        .text(d => d.data.name);
+
+    svg.append("g")
+        .attr("pointer-events", "none")
+        .attr("text-anchor", "middle")
+        .selectAll("text")
+        .data(root.descendants().filter(d => d.depth && (d.y0 + d.y1) / 2 * (d.x1 - d.x0) > 10))
+        .enter().append("text")
+        .attr("transform", function (d) {
+            const x = (d.x0 + d.x1) / 2 * 180 / Math.PI;
+            const y = (d.y0 + d.y1) / 2;
+            return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+        })
+        .attr("dy", "1.00em")
         .text(d => {
-            if (d.data.value === undefined) {
-                return d.data.name;
-            } else {
-                return `${d.data.name} ${d.data.value}`;
+            if (d.data.value !== undefined) {
+                return d.data.value.toFixed(2);
             }
         });
 
