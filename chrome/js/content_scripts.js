@@ -32,11 +32,12 @@ class User {
 }
 
 class Reviewer {
-    constructor(profileUrl, currentReviewElement, reviews = [], similarity = null) {
+    constructor(profileUrl, currentReviewElement, reviews = [], similarity = null, profile = null) {
         this.profileUrl = profileUrl;
         this.currentReviewElement = currentReviewElement;
         this.rawReviews = reviews;
         this.similarity = similarity;
+        this.profile = profile;
     }
 
     get id() {
@@ -203,9 +204,17 @@ async function sortReviewsByPersonality() {
             reviewer = new Reviewer(reviewer.profileUrl, reviewer.currentReviewElement, reviews);
             if (reviews.length >= 20) {
                 let response = await client.getProfilesSimilarity(user, reviewer);
+                console.log(response);
                 let similarity = response.data.similarity;
+                let profile = response.data.profile;
                 // let similarity = ++dummySimilarity / 10 % 1; // TODO: remove here
-                reviewer = new Reviewer(reviewer.profileUrl, reviewer.currentReviewElement, reviews, similarity);
+                reviewer = new Reviewer(
+                    reviewer.profileUrl,
+                    reviewer.currentReviewElement,
+                    reviews,
+                    similarity,
+                    profile
+                );
             }
             return reviewer;
         }));
