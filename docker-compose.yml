@@ -8,7 +8,10 @@ services:
     environment:
       - PORT_WEB_UI=8080
       - SERVICES=dynamodb
+      - DATA_DIR=/tmp/localstack
       - DEFAULT_REGION=ap-northeast-1
+    volumes:
+      - localstack_data:/tmp/localstack
   app:
     build:
       context: .
@@ -24,3 +27,6 @@ services:
       - '8000:8000'
     depends_on:
       - localstack
+volumes:
+    localstack_data:
+        driver: local
