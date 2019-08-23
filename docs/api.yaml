@@ -53,5 +53,22 @@ components:
       type: "object"
       properties:
         similarity:
-          type: number
-          format: float
+          type: "number"
+          format: "float"
+        profile:
+          type: "object"
+          properties:
+            name:
+              type: "string"
+            value:
+              type: "string"
+            children:
+              type: "array"
+              items:
+                type: "object"
+                properties:
+                  name:
+                    type: "string"
+                  value:
+                    type: "string"
+

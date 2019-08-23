@@ -41,6 +41,30 @@ class ProfilesSimilarityTest(TestCase):
                 headers={'Accept': 'application/json'},
             )
 
-        expected_response = {'similarity': 0.3333333333333332}
+        expected_response = {'profile': '{"name": "flare", "children":[{"name": "personality", "children": '
+                                        '[{"name": "Openness", "value": 0.9970814244982864}, {"name": '
+                                        '"Conscientiousness", "value": 0.986401677449357}, {"name": '
+                                        '"Extraversion", "value": 0.08530058556548259}, {"name": '
+                                        '"Agreeableness", "value": 0.1875352860319472}, {"name": '
+                                        '"Emotional range", "value": 0.9438564164580463}]},{"name": '
+                                        '"needs", "children": [{"name": "Challenge", "value": '
+                                        '0.0032546536914939694}, {"name": "Closeness", "value": '
+                                        '0.37022781101806856}, {"name": "Curiosity", "value": '
+                                        '0.845180482624851}, {"name": "Excitement", "value": '
+                                        '0.11505596926601303}, {"name": "Harmony", "value": '
+                                        '0.4664217424750215}, {"name": "Ideal", "value": '
+                                        '0.02263412995273062}, {"name": "Liberty", "value": '
+                                        '0.10802987716456186}, {"name": "Love", "value": '
+                                        '0.01189533382101321}, {"name": "Practicality", "value": '
+                                        '0.018888178951272983}, {"name": "Self-expression", "value": '
+                                        '0.18489782806561655}, {"name": "Stability", "value": '
+                                        '0.3946227431440047}, {"name": "Structure", "value": '
+                                        '0.8880129689346332}]},{"name": "values", "children": [{"name": '
+                                        '"Conservation", "value": 0.5065929218618456}, {"name": "Openness '
+                                        'to change", "value": 0.6287516949462554}, {"name": "Hedonism", '
+                                        '"value": 0.005253658217920731}, {"name": "Self-enhancement", '
+                                        '"value": 0.0011936431143393933}, {"name": "Self-transcendence", '
+                                        '"value": 0.3429609693883737}]}]}',
+                             'similarity': 0.3333333333333332}
 
         self.assertEqual(expected_response, response.get_json())
