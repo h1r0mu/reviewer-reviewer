@@ -1,22 +1,17 @@
-$("#btn").on("click", () => {
-    console.log('btn');
-    chrome.runtime.sendMessage({command: "getTweets"});
-});
-
-$("#black").on("click", () => {
-    console.log('black');
+$("#twitter").on("click", () => {
+    console.log('twitter logout');
     chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
         chrome.tabs.sendMessage(tabs[0].id, {
-            color: "black"
+            command: "logoutTwitter"
         });
     });
 });
 
-$("#red").on("click", () => {
-    console.log('red');
+$("#sort").on("click", () => {
+    console.log('sort reviews by personality');
     chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
         chrome.tabs.sendMessage(tabs[0].id, {
-            color: "red"
+            command: "sortReviewsByPersonality"
         });
     });
 });
