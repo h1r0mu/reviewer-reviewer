@@ -117,21 +117,42 @@ function findReviewElements(reviewPageDocument) {
     return Object.values(elements);
 }
 
+function createIframe(url){
+    let iframe = document.createElement("iframe");
+    iframe.src = url;
+    iframe.hidden = false;
+    return iframe;
+}
 
 function findReviewerReviewUrls(url) {
-    return new Promise((resolve, reject) => {
-        let iframe = document.createElement("iframe");
-        iframe.src = url;
-        iframe.hidden = true;
-        iframe.onload = () => {
-            let userReviews = iframe
-                .contentDocument
-                .getElementsByClassName('a-link-normal profile-at-review-link a-text-normal');
-            resolve(Object.values(userReviews).map(userReview => userReview.href));
+    return new Promise(async (resolve, reject) => {
+
+        let iframe = createIframe(url);
+        let getReviewUlrs = async () => {
+            function scrollToBottom (targetWindow) {
+                this.window = targetWindow;
+                this.delay = 100;
+                this.scroll = () => this.window.scrollTo(0, this.window.document.body.scrollHeight);
+                this.start = () => this.interval = setInterval(this.scroll, this.delay);
+                this.stop = () => clearInterval(this.interval);
+                console.log(this.window);
+            };
+            let getReviewLinkElements = d => d.getElementsByClassName('a-link-normal profile-at-review-link a-text-normal');
+            let getUrls = elems => Object.values(elems).map(elem => elem.href);
+
+            let scroll = new scrollToBottom(iframe.contentWindow);
+            scroll.start();
+            await new Promise(r => setTimeout(r, 5000));
+            scroll.stop();
+
+            let userReviews = getReviewLinkElements(iframe.contentDocument);
+            resolve(getUrls(userReviews));
             document.body.removeChild(iframe);
         };
+
+        iframe.onload = getReviewUlrs;
         document.body.appendChild(iframe);
-    })
+    });
 }
 
 async function getReviewerReviews(url) {
@@ -155,7 +176,7 @@ async function replaceReviews(reviewers) {
         let svgElement = await generateProfileChart(
             reviewer.profile,
             Math.round(document.body.offsetWidth * 0.5)
-    );
+        );
         reviewer.currentReviewElement.appendChild(svgElement);
         parentElement.appendChild(reviewer.currentReviewElement);
     }
@@ -170,13 +191,12 @@ function getReviewPageDocument(url) {
             resolve(iframe.contentDocument);
             document.body.removeChild(iframe);
         };
-        console.log('add iframe for ', url)
+        console.log('Add iframe for ', url)
         document.body.appendChild(iframe);
     })
 }
 
 async function sortReviewsByPersonality() {
-    // let dummySimilarity = 0; //TODO: remove here
     let client = new Client();
     let storage = new StorageWrapper();
     let userId = await storage.getUserId();
@@ -202,7 +222,10 @@ async function sortReviewsByPersonality() {
             let reviews = await storage.getProfileText(reviewer.id);
             if (reviews === undefined || reviews.length === 0) {
                 let reviewUrls = await findReviewerReviewUrls(reviewer.profileUrl);
+                let removeDuplicates = array => Array.from(new Set(array));
+                reviewUrls = removeDuplicates(reviewUrls);
                 reviews = await Promise.all(reviewUrls.map(getReviewerReviews));
+                console.log(reviews);
                 storage.setProfileText(reviewer.id, reviews);
             }
             reviewer = new Reviewer(reviewer.profileUrl, reviewer.currentReviewElement, reviews);
@@ -243,12 +266,12 @@ async function generateProfileChart(data, width) {
         .endAngle(d => d.x1)
         .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
         .padRadius(radius / 2)
-        .innerRadius(d => d.y0 )
+        .innerRadius(d => d.y0)
         .outerRadius(d => d.y1 - 1);
     const root = partition(data);
 
     const svg = d3.create("svg")
-        .attr("viewBox", [-width/2, -width/2, width, width])
+        .attr("viewBox", [-width / 2, -width / 2, width, width])
         .style("max-width", "100%")
         .style("height", "auto")
         .style("font", "20px sans-serif")
