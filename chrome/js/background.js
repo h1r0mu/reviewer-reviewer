@@ -1,14 +1,13 @@
 
-async function getTweets(count = 2) {
-    OAuth.initialize('wgFu5bezL7NdCCK5giqQH_xDB4U');
+const getTweets = async (count = 200) => {
+    OAuth.initialize("wgFu5bezL7NdCCK5giqQH_xDB4U");
     let result = await OAuth.popup("twitter");
-    let credentials = await result.get('/1.1/account/verify_credentials.json');
+    let credentials = await result.get("/1.1/account/verify_credentials.json");
     let timeline = await result.get(`/1.1/statuses/user_timeline.json?screen_name=${credentials.screen_name}&count=${count}`)
     let user_id = credentials.screen_name;
     let tweets = timeline.map(tweet => tweet.text);
     return [user_id, tweets];
-}
-
+};
 
 browser.runtime.onMessage.addListener(async function (msg) {
     console.log(msg);
