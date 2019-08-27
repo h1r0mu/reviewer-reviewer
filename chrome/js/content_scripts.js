@@ -1,4 +1,4 @@
-const MIN_REVIEW_LENGTH = 20;
+const MIN_REVIEW_LENGTH = 10;
 
 class AmazonHelper {
 
@@ -161,7 +161,7 @@ class Reviewer {
         const profileUrl = AmazonHelper.findReviewerProfileUrl(reviewElement);
         const id = AmazonHelper.profileUrlToId(profileUrl);
         let reviews = await Storage.getProfileText(id);
-        if (reviews === undefined || reviews.length < MIN_REVIEW_LENGTH) {
+        if (reviews === undefined || reviews.length <= MIN_REVIEW_LENGTH) {
             reviews = await AmazonHelper.getReviews(id, profileUrl);
             await Storage.setProfileText(id, reviews);
         }

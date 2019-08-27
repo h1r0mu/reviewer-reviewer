@@ -18,7 +18,6 @@ def create_app():
     def profiles_similarity():
         app.logger.debug(f'request: {request}')
         data = request.get_json()
-        app.logger.debug(f'data: {data}')
         user = User.get_or_create(user_id=data['user_id'], text=data['user_text'].replace('\n', ''))
         reviewer = User.get_or_create(user_id=data['reviewer_id'], text=data['reviewer_text'].replace('\n', ''))
         similarity = profile_utils.calc_similarity(user.profile, reviewer.profile)
