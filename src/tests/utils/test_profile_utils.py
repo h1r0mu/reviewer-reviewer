@@ -1,5 +1,9 @@
 import os
 import unittest
+#  ___
+import sys
+sys.path.append('../../')
+#  ___
 from reviewer.utils.profile_utils import calc_similarity
 
 
