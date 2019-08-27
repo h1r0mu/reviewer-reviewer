@@ -9,4 +9,4 @@ class GetCalcSimilarityTest(unittest.TestCase):
         with open(os.path.join(os.path.dirname(__file__), '../../resources/personality-v3-expect1.txt')) as expect_file:
             profile = expect_file.read()
         value_expected = calc_similarity(profile, profile)
-        self.assertAlmostEqual(value_expected, 1 / 3)
+        self.assertAlmostEqual(value_expected, 1)
