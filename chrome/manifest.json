@@ -8,8 +8,8 @@
   },
   "background": {
     "scripts": [
-      "js/lib/browser-polyfill.min.js",
       "js/lib/axios.min.js",
+      "js/lib/browser-polyfill.min.js",
       "js/lib/oauth.min.js",
       "js/background.js"
     ]
@@ -17,10 +17,9 @@
   "content_scripts": [
     {
       "js": [
-        "js/lib/d3.v5.min.js",
-        "js/lib/browser-polyfill.min.js",
         "js/lib/axios.min.js",
-        "js/lib/jquery.min.js",
+        "js/lib/browser-polyfill.min.js",
+        "js/lib/d3.v5.min.js",
         "js/content_scripts.js"
       ],
       "matches": [

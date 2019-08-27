@@ -1,17 +1,142 @@
+class AmazonHelper {
+
+    static genPosNegReviewUrls(productUrl) {
+        const domain = productUrl.split('/')[2];
+        const product = productUrl.match(/([A-Z]|[0-9]){10}/)[0];
+        const posUrl = `https://${domain}/product-reviews/${product}/` +
+            `?ie=UTF8&filterByStar=positive&reviewerType=all_reviews&pageNumber=1`;
+        const negUrl = `https://${domain}/product-reviews/${product}/` +
+            `?ie=UTF8&filterByStar=critical&reviewerType=all_reviews&pageNumber=1`;
+
+        return [posUrl, negUrl];
+    }
+
+
+    static async findReviewElements(url) {
+        const reviewPageDocument = await AmazonHelper.getReviewPageDocument(url);
+        let elements = reviewPageDocument.getElementsByClassName("a-section review aok-relative");
+        return Object.values(elements);
+    }
+
+    static findReviewerProfileUrl(reviewElement) {
+        const user = reviewElement.getElementsByClassName("a-profile")[0];
+        return user.href;
+    }
+
+    static getReviewLinkElements(targetDocument) {
+        const reviewElements = targetDocument.getElementsByClassName('a-link-normal profile-at-review-link a-text-normal');
+        return Object.values(reviewElements).map(elem => elem.href);
+    }
+
+    static findReviewerReviewUrls(url) {
+        return new Promise(async (resolve, reject) => {
+
+            const iframe = createIframe(url);
+            iframe.onload = async () => {
+                await scrollToBottom(iframe.contentWindow);
+                const reviewUrls = AmazonHelper.getReviewLinkElements(iframe.contentDocument);
+                resolve(reviewUrls);
+                document.body.removeChild(iframe);
+            };
+            document.body.appendChild(iframe);
+        });
+    }
+
+    static async getReviewerReviews(url) {
+        let reviewDocument = await getDocument(url);
+        let reviewBody = reviewDocument.getElementsByClassName('a-size-base review-text review-text-content');
+        return reviewBody[0].textContent;
+    }
+
+    static getReviewPageDocument(url) {
+        return new Promise((resolve, reject) => {
+            const iframe = createIframe(url);
+            iframe.onload = () => {
+                resolve(iframe.contentDocument);
+                document.body.removeChild(iframe);
+            };
+            document.body.appendChild(iframe);
+        });
+    }
+
+    static async replaceReviews(reviewers) {
+        reviewers = reviewers.filter(a => a.similarity != null).sort((a, b) => b.similarity - a.similarity);
+        const parentElement = document.getElementsByClassName("a-section review-views celwidget")[0];
+        while (parentElement.lastChild) {
+            parentElement.removeChild(parentElement.lastChild);
+        }
+        for (const reviewer of reviewers) {
+            const element = reviewer.currentReviewElement;
+            const profileElement = element.getElementsByClassName("a-profile-content")[0];
+            const newText = document.createTextNode(`  Similarity: ${reviewer.similarity}`);
+            const svgElement = await generateProfileChart(
+                reviewer.profile,
+                Math.trunc(document.body.offsetWidth * 0.5)
+            );
+            profileElement.appendChild(newText);
+            element.appendChild(svgElement);
+            parentElement.appendChild(element);
+        }
+    }
+
+    static async sortReviewsByPersonality() {
+        const user = await User.getOrCreate();
+        const topReviewUrls = AmazonHelper.genPosNegReviewUrls(location.href);
+        let reviewers = [];
+        for (const topReviewUrl of topReviewUrls) {
+            const reviewElements = await AmazonHelper.findReviewElements(topReviewUrl);
+            const newReviewers = await Promise.all(reviewElements.slice(0, 2).map(Reviewer.getOrCreate));
+            await newReviewers
+                .filter(reviewer => reviewer.rawReviews.length >= 20)
+                .map(async reviewer => {
+                    const response = await Client.getProfilesSimilarity(
+                        user.id,
+                        user.tweets,
+                        reviewer.id,
+                        reviewer.reviews
+                    );
+                    console.log(response);
+                    reviewer.similarity = response.data.similarity;
+                    reviewer.profile = JSON.parse(response.data.profile);
+                });
+            Array.prototype.push.apply(reviewers, newReviewers);
+        }
+        console.log(reviewers);
+        await AmazonHelper.replaceReviews(reviewers);
+    }
+
+    static profileUrlToId(profileUrl) {
+        return profileUrl.split('/')[5].split('.')[2];
+    }
+
+
+    static async getReviews(id, profileUrl) {
+        let reviews = await Storage.getProfileText(id);
+        if (reviews === undefined || reviews.length === 0) {
+            let reviewUrls = await AmazonHelper.findReviewerReviewUrls(profileUrl);
+            reviewUrls = removeDuplicates(reviewUrls);
+            reviews = await Promise.all(reviewUrls.map(AmazonHelper.getReviewerReviews));
+            console.log(reviews);
+            await Storage.setProfileText(id, reviews);
+        }
+        return reviews;
+    }
+}
+
 class Client {
     constructor() {
         this.url = "http://localhost:8000/api/v1/profiles/similarity"
     }
 
-    async getProfilesSimilarity(user, reviewer) {
+    static async getProfilesSimilarity(user_id, user_text, reviewer_id, reviewer_text) {
         let msg = {
             command: "axiosPost",
             url: this.url,
             request: {
-                user_id: user.id,
-                user_text: user.tweets,
-                reviewer_id: reviewer.id,
-                reviewer_text: reviewer.reviews
+                user_id: user_id,
+                user_text: user_text,
+                reviewer_id: reviewer_id,
+                reviewer_text: reviewer_text
             }
         };
         console.log('Send msg', msg);
@@ -19,6 +144,58 @@ class Client {
     }
 }
 
+
+class Reviewer {
+    constructor(profileUrl, id, currentReviewElement, reviews, similarity = null, profile = null) {
+        this.profileUrl = profileUrl;
+        this.id = id;
+        this.currentReviewElement = currentReviewElement;
+        this.rawReviews = reviews;
+        this.similarity = similarity;
+        this.profile = profile;
+    }
+
+    get reviews() {
+        return this.rawReviews.join(' ');
+    }
+
+    static async getOrCreate(reviewElement) {
+        const profileUrl = AmazonHelper.findReviewerProfileUrl(reviewElement);
+        const id = AmazonHelper.profileUrlToId(profileUrl);
+        let reviews = await Storage.getProfileText(id);
+        if (reviews === undefined || reviews.length === 0) {
+            reviews = await AmazonHelper.getReviews(id, profileUrl);
+            await Storage.setProfileText(id, reviews);
+        }
+        return new Reviewer(profileUrl, id, reviewElement, reviews);
+    }
+
+}
+
+class Storage {
+
+    static getUserId() {
+        return Storage.getProfileText('user_id');
+    }
+
+    static setUserId(userId) {
+        return Storage.setProfileText('user_id', userId);
+    }
+
+    static async removeUserId() {
+        const userId = await Storage.getUserId();
+        browser.storage.local.remove(`rr_profiles_${userId}`);
+    }
+
+    static async getProfileText(id) {
+        const value = await browser.storage.local.get(`rr_profiles_${id}`);
+        return value[`rr_profiles_${id}`];
+    }
+
+    static async setProfileText(id, text) {
+        browser.storage.local.set({[`rr_profiles_${id}`]: text});
+    }
+}
 
 class User {
     constructor(id, tweets = []) {
@@ -29,239 +206,40 @@ class User {
     get tweets() {
         return this.rawTweets.join(' ');
     }
-}
 
-class Reviewer {
-    constructor(profileUrl, currentReviewElement, reviews = [], similarity = null, profile = null) {
-        this.profileUrl = profileUrl;
-        this.currentReviewElement = currentReviewElement;
-        this.rawReviews = reviews;
-        this.similarity = similarity;
-        this.profile = profile;
-    }
-
-    get id() {
-        return this.profileUrl.split('/')[5].split('.')[2];
-    }
-
-    get reviews() {
-        return this.rawReviews.join(' ');
-    }
-
-}
-
-class StorageWrapper {
-
-    getUserId() {
-        return this.getProfileText('user_id');
-    }
-
-    setUserId(userId) {
-        return this.setProfileText('user_id', userId);
-    }
-
-    async removeUserId() {
-        let userId = await this.getUserId();
-        browser.storage.local.remove(`rr_profiles_${userId}`);
-    }
-
-    async getProfileText(id) {
-        let value = await browser.storage.local.get(`rr_profiles_${id}`);
-        return value[`rr_profiles_${id}`];
-    }
-
-    async setProfileText(id, text) {
-        browser.storage.local.set({[`rr_profiles_${id}`]: text});
+    static async getOrCreate() {
+        let userId = await Storage.getUserId();
+        let tweets = await Storage.getProfileText(userId);
+        if ((userId === undefined || tweets === undefined)) {
+            [userId, tweets] = await getTweets();
+            await Storage.setUserId(userId);
+            await Storage.setProfileText(userId, tweets);
+        }
+        return new User(userId, tweets);
     }
 }
 
-function genPosNegReviewUrls(productUrl) {
-    let domain = productUrl.split('/')[2];
-    let product = productUrl.match(/([A-Z]|[0-9]){10}/)[0];
+const removeDuplicates = array => Array.from(new Set(array));
 
-    return {
-        pos: `https://${domain}/product-reviews/${product}/` +
-            `?ie=UTF8&filterByStar=positive&reviewerType=all_reviews&pageNumber=1`,
-        neg: `https://${domain}/product-reviews/${product}/` +
-            `?ie=UTF8&filterByStar=critical&reviewerType=all_reviews&pageNumber=1`
-    }
-}
+const sleep = timeout => new Promise(r => setTimeout(r, timeout));
 
-async function getDocument(reviewUrl) {
-    let parser = new DOMParser();
-    try {
-        let response = await axios.get(reviewUrl);
-        return parser.parseFromString(response.data, "text/html");
-    } catch (err) {
-        console.log(err);
-    }
-}
-
-async function getTweets(count = 200) {
-    let msg = {
-        command: 'getTweets',
-        count: count
-    };
-    let response = await browser.runtime.sendMessage(msg);
-    return [response.userId, response.tweets];
-}
-
-function findReviewerProfileUrl(reviewElement) {
-    let user = reviewElement.getElementsByClassName("a-profile")[0];
-    return user.href;
-}
-
-function findReviewElements(reviewPageDocument) {
-    // TODO: remove slice
-    let elements = reviewPageDocument.getElementsByClassName("a-section review aok-relative");
-    return Object.values(elements);
-}
-
-function createIframe(url){
+const createIframe = url => {
     let iframe = document.createElement("iframe");
     iframe.src = url;
-    iframe.hidden = false;
+    iframe.hidden = true;
     return iframe;
-}
+};
 
-function findReviewerReviewUrls(url) {
-    return new Promise(async (resolve, reject) => {
-
-        let iframe = createIframe(url);
-        let getReviewUlrs = async () => {
-            function scrollToBottom (targetWindow) {
-                this.window = targetWindow;
-                this.delay = 100;
-                this.scroll = () => this.window.scrollTo(0, this.window.document.body.scrollHeight);
-                this.start = () => this.interval = setInterval(this.scroll, this.delay);
-                this.stop = () => clearInterval(this.interval);
-                console.log(this.window);
-            };
-            let getReviewLinkElements = d => d.getElementsByClassName('a-link-normal profile-at-review-link a-text-normal');
-            let getUrls = elems => Object.values(elems).map(elem => elem.href);
-
-            let scroll = new scrollToBottom(iframe.contentWindow);
-            scroll.start();
-            await new Promise(r => setTimeout(r, 5000));
-            scroll.stop();
-
-            let userReviews = getReviewLinkElements(iframe.contentDocument);
-            resolve(getUrls(userReviews));
-            document.body.removeChild(iframe);
-        };
-
-        iframe.onload = getReviewUlrs;
-        document.body.appendChild(iframe);
-    });
-}
-
-async function getReviewerReviews(url) {
-    let reviewDocument = await getDocument(url);
-    let reviewBody = reviewDocument.getElementsByClassName('a-size-base review-text review-text-content');
-    return reviewBody[0].textContent;
-}
-
-async function replaceReviews(reviewers) {
-    reviewers = reviewers.filter(a => a.similarity != null).sort((a, b) => b.similarity - a.similarity);
-    let parentElement = document.getElementsByClassName("a-section review-views celwidget")[0];
-    while (parentElement.lastChild) {
-        parentElement.removeChild(parentElement.lastChild);
-    }
-    for (let reviewer of reviewers) {
-        let profileContent = reviewer.currentReviewElement.getElementsByClassName("a-profile-content")[0];
-        console.log(reviewer);
-        let newText = document.createTextNode(`  Similarity: ${reviewer.similarity}`);
-        profileContent.appendChild(newText);
-        console.log(profileContent.offsetWidth)
-        let svgElement = await generateProfileChart(
-            reviewer.profile,
-            Math.round(document.body.offsetWidth * 0.5)
-        );
-        reviewer.currentReviewElement.appendChild(svgElement);
-        parentElement.appendChild(reviewer.currentReviewElement);
-    }
-}
-
-function getReviewPageDocument(url) {
-    return new Promise((resolve, reject) => {
-        let iframe = document.createElement("iframe");
-        iframe.src = url;
-        iframe.hidden = true;
-        iframe.onload = () => {
-            resolve(iframe.contentDocument);
-            document.body.removeChild(iframe);
-        };
-        console.log('Add iframe for ', url)
-        document.body.appendChild(iframe);
-    })
-}
-
-async function sortReviewsByPersonality() {
-    let client = new Client();
-    let storage = new StorageWrapper();
-    let userId = await storage.getUserId();
-    let tweets = await storage.getProfileText(userId);
-    if ((userId === undefined || tweets === undefined)) {
-        [userId, tweets] = await getTweets();
-        storage.setUserId(userId);
-        storage.setProfileText(userId, tweets);
-    }
-    let user = new User(userId, tweets);
-    let topReviewUrls = genPosNegReviewUrls(location.href);
-    let reviewers = [];
-    for (let topReviewUrl of Object.values(topReviewUrls)) {
-        let reviewPageDocument = await getReviewPageDocument(topReviewUrl);
-        let reviewElements = await findReviewElements(reviewPageDocument);
-        let newReviewers = reviewElements.map(elem => {
-            let profileUrl = findReviewerProfileUrl(elem);
-            console.log(profileUrl);
-            return new Reviewer(profileUrl, elem);
-        });
-        console.log(newReviewers);
-        newReviewers = await Promise.all(newReviewers.map(async reviewer => {
-            let reviews = await storage.getProfileText(reviewer.id);
-            if (reviews === undefined || reviews.length === 0) {
-                let reviewUrls = await findReviewerReviewUrls(reviewer.profileUrl);
-                let removeDuplicates = array => Array.from(new Set(array));
-                reviewUrls = removeDuplicates(reviewUrls);
-                reviews = await Promise.all(reviewUrls.map(getReviewerReviews));
-                console.log(reviews);
-                storage.setProfileText(reviewer.id, reviews);
-            }
-            reviewer = new Reviewer(reviewer.profileUrl, reviewer.currentReviewElement, reviews);
-            if (reviews.length >= 20) {
-                let response = await client.getProfilesSimilarity(user, reviewer);
-                console.log(response);
-                let similarity = response.data.similarity;
-                let profile = JSON.parse(response.data.profile);
-                // let similarity = ++dummySimilarity / 10 % 1; // TODO: remove here
-                reviewer = new Reviewer(
-                    reviewer.profileUrl,
-                    reviewer.currentReviewElement,
-                    reviews,
-                    similarity,
-                    profile
-                );
-            }
-            return reviewer;
-        }));
-        Array.prototype.push.apply(reviewers, newReviewers);
-    }
-    console.log(reviewers)
-    await replaceReviews(reviewers);
-}
-
-async function generateProfileChart(data, width) {
-    console.log(width);
-    let partition = data => d3.partition()
+const generateProfileChart = async (data, width) => {
+    const partition = data => d3.partition()
         .size([2 * Math.PI, radius])
         (d3.hierarchy(data)
             .sum(d => d.value)
             .sort((a, b) => b.value - a.value));
-    let color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
-    let format = d3.format(",d");
-    let radius = width / 2.3;
-    let arc = d3.arc()
+    const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
+    const format = d3.format(",d");
+    const radius = width / 2.3;
+    const arc = d3.arc()
         .startAngle(d => d.x0)
         .endAngle(d => d.x1)
         .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
@@ -324,19 +302,43 @@ async function generateProfileChart(data, width) {
 
     return svg.node();
 
-}
+};
 
+const getDocument = async url => {
+    const parser = new DOMParser();
+    try {
+        const response = await axios.get(url);
+        return parser.parseFromString(response.data, "text/html");
+    } catch (err) {
+        console.log(err);
+    }
+};
 
-chrome.runtime.onMessage.addListener(async function (message, sender, sendResponse) {
+const getTweets = async (count = 200) => {
+    const msg = {
+        command: 'getTweets',
+        count: count
+    };
+    const response = await browser.runtime.sendMessage(msg);
+    return [response.userId, response.tweets];
+};
+
+const scrollToBottom = async (targetWindow, delay = 100, timeout = 5000) => {
+    const scroll = () => targetWindow.scrollTo(0, targetWindow.document.body.scrollHeight);
+    const interval = setInterval(scroll, this.delay);
+    await sleep(timeout);
+    clearInterval(interval);
+};
+
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
     console.log(message);
     switch (message.command) {
         case "sortReviewsByPersonality":
-            sortReviewsByPersonality();
+            await AmazonHelper.sortReviewsByPersonality();
             break;
         case "logoutTwitter":
-            let storageWrapper = new StorageWrapper();
-            storageWrapper.removeUserId();
+            await Storage.removeUserId();
             break;
         default:
             console.log("Unknown command specified.");
