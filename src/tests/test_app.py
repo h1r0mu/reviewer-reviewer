@@ -65,6 +65,6 @@ class ProfilesSimilarityTest(TestCase):
                                         '"value": 0.005253658217920731}, {"name": "Self-enhancement", '
                                         '"value": 0.0011936431143393933}, {"name": "Self-transcendence", '
                                         '"value": 0.3429609693883737}]}]}',
-                             'similarity': 0.3333333333333332}
+                             'similarity': 1}
 
         self.assertEqual(expected_response, response.get_json())
