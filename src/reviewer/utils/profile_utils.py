@@ -21,13 +21,13 @@ def create_new_dict(personality, needs, values):
 
 
 def similarity_func(diff, reliability):
-    if reliability == 'High':
-        value = (-1) * diff + 1
-    elif reliability == 'Medium':
-        value = (-2 / 3) * diff + 2 / 3
-    elif reliability == 'Low':
-        value = (-1 / 3) * diff + 1 / 3
-    return value
+    # if reliability == 'High':
+    #     value = (-1) * diff + 1
+    # elif reliability == 'Medium':
+    #     value = (-2 / 3) * diff + 2 / 3
+    # elif reliability == 'Low':
+    #     value = (-1 / 3) * diff + 1 / 3
+    return (-1) * diff + 1
 
 
 def calc_element_similarity(user_dict, reviewer_dict, reliability):

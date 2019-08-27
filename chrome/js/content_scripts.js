@@ -1,4 +1,7 @@
+const MIN_REVIEW_LENGTH = 10;
+
 class AmazonHelper {
+
 
     static genPosNegReviewUrls(productUrl) {
         const domain = productUrl.split('/')[2];
@@ -85,9 +88,10 @@ class AmazonHelper {
         let reviewers = [];
         for (const topReviewUrl of topReviewUrls) {
             const reviewElements = await AmazonHelper.findReviewElements(topReviewUrl);
-            const newReviewers = await Promise.all(reviewElements.slice(0, 2).map(Reviewer.getOrCreate));
-            await newReviewers
-                .filter(reviewer => reviewer.rawReviews.length >= 20)
+            const newReviewers = await Promise.all(reviewElements.map(Reviewer.getOrCreate));
+            await Promise.all(
+                newReviewers
+                .filter(reviewer => reviewer.rawReviews.length >= MIN_REVIEW_LENGTH)
                 .map(async reviewer => {
                     const response = await Client.getProfilesSimilarity(
                         user.id,
@@ -98,7 +102,7 @@ class AmazonHelper {
                     console.log(response);
                     reviewer.similarity = response.data.similarity;
                     reviewer.profile = JSON.parse(response.data.profile);
-                });
+                }));
             Array.prototype.push.apply(reviewers, newReviewers);
         }
         console.log(reviewers);
@@ -111,25 +115,19 @@ class AmazonHelper {
 
 
     static async getReviews(id, profileUrl) {
-        let reviews = await Storage.getProfileText(id);
-        if (reviews === undefined || reviews.length === 0) {
-            let reviewUrls = await AmazonHelper.findReviewerReviewUrls(profileUrl);
-            reviewUrls = removeDuplicates(reviewUrls);
-            reviews = await Promise.all(reviewUrls.map(AmazonHelper.getReviewerReviews));
-            console.log(reviews);
-            await Storage.setProfileText(id, reviews);
-        }
+        let reviewUrls = await AmazonHelper.findReviewerReviewUrls(profileUrl);
+        reviewUrls = removeDuplicates(reviewUrls);
+        const reviews = await Promise.all(reviewUrls.map(AmazonHelper.getReviewerReviews));
+        console.log(reviews);
         return reviews;
     }
 }
 
 class Client {
-    constructor() {
-        this.url = "http://localhost:8000/api/v1/profiles/similarity"
-    }
+    static get url() {return "http://localhost:8000/api/v1/profiles/similarity"}
 
     static async getProfilesSimilarity(user_id, user_text, reviewer_id, reviewer_text) {
-        let msg = {
+        const msg = {
             command: "axiosPost",
             url: this.url,
             request: {
@@ -163,7 +161,7 @@ class Reviewer {
         const profileUrl = AmazonHelper.findReviewerProfileUrl(reviewElement);
         const id = AmazonHelper.profileUrlToId(profileUrl);
         let reviews = await Storage.getProfileText(id);
-        if (reviews === undefined || reviews.length === 0) {
+        if (reviews === undefined || reviews.length <= MIN_REVIEW_LENGTH) {
             reviews = await AmazonHelper.getReviews(id, profileUrl);
             await Storage.setProfileText(id, reviews);
         }
