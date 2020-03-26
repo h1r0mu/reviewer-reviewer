@@ -5,6 +5,7 @@ jobs:
     docker:
       - image: circleci/python:3.7
         environment:
+          CODECOV_TOKEN: 77465e0d-f81d-424c-82fc-25ead96c12ae
           AWS_REGION: ap-northeast-1
           AWS_ACCESS_KEY_ID: AKIAIOSFODNN7EXAMPLE
           AWS_SECRET_ACCESS_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
@@ -44,3 +45,9 @@ jobs:
             export PIPENV_PIPFILE=~/reviewer-reviewer/src/Pipfile
             ~/reviewer-reviewer/src/bin/wait-for-it.sh localstack:4569 -t 30
             pipenv run python -m unittest discover -s tests -p "test_*.py" -t ./src
+      - run:
+          name: Coverage
+          command: |
+            pipenv install coverage
+            pipenv run coverage run --source='./src' python -m unittest discover -s tests -p "test_*.py" -t ./src
+            pipenv run codecov
